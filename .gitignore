@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Project — never commit data, weights, or run artifacts
+data/raw/
+data/processed/
+data/*.parquet
+data/*.jsonl
+data/*.csv
+checkpoints/
+outputs/
+runs/
+wandb/
+*.bin
+*.safetensors
+*.gguf
+.env
+
+# DVC tracks the real files; only the .dvc pointers go in git
+/data/.dvc/cache
+/data/.dvc/tmp
+
+# HuggingFace cache (can be huge)
+.cache/
