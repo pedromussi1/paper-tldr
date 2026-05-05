@@ -32,17 +32,28 @@ Reported on SciTLDR validation split (n=618). Test-set numbers will be reported 
 | Method | ROUGE-1 | ROUGE-2 | ROUGE-L | BERTScore F1 | mean output words | Human Likert (1–5) |
 |---|---|---|---|---|---|---|
 | First-sentence extractive | 0.259 | 0.093 | 0.205 | 0.637 | — | TBD |
-| Zero-shot Llama 3.2 1B Instruct | 0.297 | 0.096 | 0.223 | 0.657 | 20.2 | TBD |
-| Zero-shot Llama 3.2 3B Instruct | 0.274 | 0.072 | 0.201 | 0.657 | 31.3 | TBD |
+| Zero-shot Llama 3.2 1B Instruct | 0.302 | 0.102 | 0.229 | 0.657 | 20.4 | TBD |
+| Zero-shot Llama 3.2 3B Instruct | 0.337 | 0.131 | 0.258 | 0.674 | 30.2 | TBD |
 | **QLoRA 3B (ours)** | **TBD** | **TBD** | **TBD** | **TBD** | **TBD** | **TBD** |
 
 *Reference summaries average 19.0 words.*
 
-### Baseline observations
+### Prompt-sensitivity ablation
 
-- **ROUGE is non-monotonic in model size on this benchmark.** The 3B Instruct scores *lower* than the 1B Instruct on every ROUGE variant despite being a stronger model. Manual inspection shows the 3B follows the system prompt's "plain-language" instruction faithfully ("Researchers have developed a new approach..."), while SciTLDR's reference summaries are technical paper-style TLDRs (often the authors' own language). The 3B's outputs are 60% longer than the 1B's (31.3 vs 20.2 words) and ~65% longer than the references (19.0 words) — the wordiness directly drives the ROUGE drop.
-- **BERTScore is essentially tied** (0.6566 / 0.6566), confirming the semantic content is equivalent — the two models disagree on style, not substance.
-- **Implication for fine-tuning:** the QLoRA training signal teaches the model to match SciTLDR's terse, technical style. This may conflict with the "plain-language" framing in the system prompt; we'll either drop that framing during fine-tuning (cleaner signal) or report both prompt variants as an ablation. Decision logged in the project notes.
+We ran the LLM baselines twice. The first prompt described the task as writing a *"plain-language TL;DR for a non-specialist."* The second dropped that framing in favor of a neutral *"write a TL;DR capturing the paper's core contribution."* The numbers above use the neutral prompt; the older numbers are kept here as an ablation.
+
+| Prompt variant | Model | ROUGE-1 | ROUGE-2 | ROUGE-L | BERTScore F1 | mean output words |
+|---|---|---|---|---|---|---|
+| `plain-language` | Llama 3.2 1B | 0.297 | 0.096 | 0.223 | 0.657 | 20.2 |
+| `plain-language` | Llama 3.2 3B | 0.274 | 0.072 | 0.201 | 0.657 | 31.3 |
+| `neutral` | Llama 3.2 1B | 0.302 | 0.102 | 0.229 | 0.657 | 20.4 |
+| `neutral` | Llama 3.2 3B | 0.337 | 0.131 | 0.258 | 0.674 | 30.2 |
+
+**Observations:**
+- With the `plain-language` prompt, **the 3B scored *lower* than the 1B on every ROUGE variant** despite being a stronger model. Manual inspection showed the 3B was faithfully following the instruction ("Researchers have developed a new approach…") while SciTLDR references are terse, technical author-style TLDRs. The 1B partly ignored the instruction and stayed in technical vocabulary, accidentally matching the reference style.
+- Switching to the neutral prompt closed and reversed the gap: ROUGE-1 jumped from 0.274 → 0.337 on the 3B (+0.063), while the 1B barely moved (+0.005). BERTScore also rose for the 3B (0.657 → 0.674) but stayed flat for the 1B.
+- Mean output length only changed by ≤1 word in either case, so the ROUGE jump is driven by **vocabulary alignment**, not length. The 3B's plain-language paraphrases used different surface forms than the technical references; the neutral prompt let it match them.
+- Takeaway for fine-tuning: training prompts that telegraph a *style* the dataset doesn't actually exhibit punish stronger models more than weaker ones. We'll use the neutral prompt for QLoRA so the training signal is clean.
 
 ## Ablations (planned)
 

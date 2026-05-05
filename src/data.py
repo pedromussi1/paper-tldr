@@ -16,10 +16,9 @@ from datasets import Dataset
 from transformers import PreTrainedTokenizerBase
 
 SYSTEM_PROMPT = (
-    "You are a science communicator. Given a paper abstract, write a plain-language "
-    "TL;DR (one or two sentences) that preserves the core finding for a non-specialist. "
-    "Output only the TL;DR sentences themselves — no preamble, no quotation marks, "
-    "no markdown, no explanation."
+    "You are a research assistant. Given a paper abstract, write a TL;DR (one or two "
+    "sentences) capturing the paper's core contribution. Output only the TL;DR "
+    "sentences themselves — no preamble, no quotation marks, no markdown, no explanation."
 )
 
 
