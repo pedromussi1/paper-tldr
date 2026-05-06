@@ -24,7 +24,11 @@ from pathlib import Path
 # allow `python scripts/run_baselines.py ...` from repo root without -m
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.baselines import extractive_first_sentence, zero_shot_llm  # noqa: E402
+from src.baselines import (  # noqa: E402
+    extractive_first_sentence,
+    qlora_finetuned_llm,
+    zero_shot_llm,
+)
 from src.eval import compute_metrics  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
@@ -51,14 +55,15 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument(
         "--baseline",
-        choices=["extractive", "zero-shot"],
+        choices=["extractive", "zero-shot", "qlora"],
         required=True,
         help="Which baseline to run.",
     )
     ap.add_argument("--split", choices=["train", "val", "test"], default="val")
-    ap.add_argument("--model", default="meta-llama/Llama-3.2-3B-Instruct", help="HF model id (zero-shot only).")
-    ap.add_argument("--batch-size", type=int, default=4, help="Generation batch size (zero-shot only).")
-    ap.add_argument("--max-new-tokens", type=int, default=96, help="Generation cap (zero-shot only).")
+    ap.add_argument("--model", default="meta-llama/Llama-3.2-3B-Instruct", help="HF model id (zero-shot/qlora base).")
+    ap.add_argument("--adapter-path", default=None, help="Path to LoRA adapter (qlora mode).")
+    ap.add_argument("--batch-size", type=int, default=4, help="Generation batch size (LLM modes only).")
+    ap.add_argument("--max-new-tokens", type=int, default=96, help="Generation cap (LLM modes only).")
     ap.add_argument("--limit", type=int, default=0, help="Cap rows for a quick smoke run (0 = all).")
     ap.add_argument("--name", default=None, help="Override the run name (used in output filenames).")
     ap.add_argument("--no-wandb", action="store_true", help="Skip W&B logging.")
@@ -76,12 +81,26 @@ def main() -> None:
         t0 = time.perf_counter()
         preds = [extractive_first_sentence(a) for a in abstracts]
         elapsed = time.perf_counter() - t0
-    else:
+    elif args.baseline == "zero-shot":
         name = args.name or f"zero_shot__{args.model.split('/')[-1]}"
         t0 = time.perf_counter()
         preds = zero_shot_llm(
             abstracts,
             model_name=args.model,
+            batch_size=args.batch_size,
+            max_new_tokens=args.max_new_tokens,
+        )
+        elapsed = time.perf_counter() - t0
+    else:  # qlora
+        if not args.adapter_path:
+            raise SystemExit("qlora mode requires --adapter-path")
+        adapter_name = Path(args.adapter_path).parent.name + "_" + Path(args.adapter_path).name
+        name = args.name or f"qlora__{adapter_name}"
+        t0 = time.perf_counter()
+        preds = qlora_finetuned_llm(
+            abstracts,
+            base_model_name=args.model,
+            adapter_path=args.adapter_path,
             batch_size=args.batch_size,
             max_new_tokens=args.max_new_tokens,
         )

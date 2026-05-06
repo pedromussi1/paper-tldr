@@ -34,7 +34,17 @@ Reported on SciTLDR validation split (n=618). Test-set numbers will be reported 
 | First-sentence extractive | 0.259 | 0.093 | 0.205 | 0.637 | — | TBD |
 | Zero-shot Llama 3.2 1B Instruct | 0.302 | 0.102 | 0.229 | 0.657 | 20.4 | TBD |
 | Zero-shot Llama 3.2 3B Instruct | 0.337 | 0.131 | 0.258 | 0.674 | 30.2 | TBD |
-| **QLoRA 3B (ours)** | **TBD** | **TBD** | **TBD** | **TBD** | **TBD** | **TBD** |
+| **QLoRA 3B, rank=16 (ours)** | **0.402** | **0.183** | **0.333** | **0.711** | **21.1** | TBD |
+
+**Headline: QLoRA fine-tuning beats every baseline on every metric.** Relative gains over the zero-shot 3B:
+- ROUGE-1: +19% (0.337 → 0.402)
+- **ROUGE-2: +40%** (0.131 → 0.183) — the hardest metric to move; bigram-level alignment with the reference style
+- ROUGE-L: +29% (0.258 → 0.333)
+- BERTScore: +5.5% (0.674 → 0.711)
+
+Inspecting predictions confirms the fine-tune learned the SciTLDR paper-author voice (*"We introduce..."*, *"We propose..."*) and tightened output length from 30.2 → 21.1 words, very close to the 19.0-word reference mean.
+
+Training: 372 steps, ~41 minutes on a single RTX 4070 Ti with QLoRA r=16, 4-bit NF4 quantization, paged AdamW 8-bit, cosine LR schedule, effective batch size 16. Train loss dropped from 2.91 → 1.04; eval loss plateaued ~2.05–2.13 (mild overfit signal but no divergence). Run logged to W&B: <https://wandb.ai/pedromussi-pedro-mussi/paper-tldr/runs/rc05szkq>.
 
 *Reference summaries average 19.0 words.*
 

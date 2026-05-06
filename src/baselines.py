@@ -67,31 +67,23 @@ def _build_prompt_messages(abstract: str) -> list[dict[str, str]]:
     ]
 
 
-def zero_shot_llm(
-    abstracts: Iterable[str],
-    model_name: str,
-    batch_size: int = 4,
-    max_new_tokens: int = 96,
-    dtype: torch.dtype = torch.float16,
-    device: str = "cuda",
-) -> list[str]:
-    """Run zero-shot generation with the model's chat template.
-
-    Returns a list of generated TLDRs, one per input abstract, in order.
-    """
+def _prepare_tokenizer(model_name: str):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"  # left-pad for batched generation
+    return tokenizer
 
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        torch_dtype=dtype,
-        device_map=device,
-    )
-    model.eval()
 
-    abstracts = list(abstracts)
+def _generate_with_chat_template(
+    model,
+    tokenizer,
+    abstracts: list[str],
+    batch_size: int,
+    max_new_tokens: int,
+    device: str = "cuda",
+) -> list[str]:
+    """Shared generation core used by zero-shot baselines and the QLoRA model."""
     prompts = [
         tokenizer.apply_chat_template(
             _build_prompt_messages(a),
@@ -115,13 +107,75 @@ def zero_shot_llm(
                 pad_token_id=tokenizer.pad_token_id,
                 eos_token_id=tokenizer.eos_token_id,
             )
-        # Slice off the prompt portion to recover only the generated continuation.
         for ids in out:
             gen_ids = ids[enc["input_ids"].shape[1] :]
             text = tokenizer.decode(gen_ids, skip_special_tokens=True)
             completions.append(strip_llm_preamble(text))
         del enc, out
 
+    return completions
+
+
+def zero_shot_llm(
+    abstracts: Iterable[str],
+    model_name: str,
+    batch_size: int = 4,
+    max_new_tokens: int = 96,
+    dtype: torch.dtype = torch.float16,
+    device: str = "cuda",
+) -> list[str]:
+    """Run zero-shot generation with the model's chat template.
+
+    Returns a list of generated TLDRs, one per input abstract, in order.
+    """
+    tokenizer = _prepare_tokenizer(model_name)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=dtype,
+        device_map=device,
+    )
+    model.eval()
+
+    completions = _generate_with_chat_template(
+        model, tokenizer, list(abstracts), batch_size, max_new_tokens, device
+    )
+
     del model
+    torch.cuda.empty_cache()
+    return completions
+
+
+def qlora_finetuned_llm(
+    abstracts: Iterable[str],
+    base_model_name: str,
+    adapter_path: str,
+    batch_size: int = 4,
+    max_new_tokens: int = 96,
+    dtype: torch.dtype = torch.bfloat16,  # match training compute dtype
+    device: str = "cuda",
+) -> list[str]:
+    """Generate from a base model with a QLoRA adapter applied on top.
+
+    The base model is loaded in fp16/bf16 (no 4-bit quantization here) so the
+    comparison against the fp16 zero-shot baseline is apples-to-apples — only
+    the LoRA adapter introduces the change. A separate quantized-inference
+    eval can be run later to measure the deployment-time quantization drop.
+    """
+    from peft import PeftModel  # imported lazily to keep base import surface small
+
+    tokenizer = _prepare_tokenizer(base_model_name)
+    base = AutoModelForCausalLM.from_pretrained(
+        base_model_name,
+        torch_dtype=dtype,
+        device_map=device,
+    )
+    model = PeftModel.from_pretrained(base, adapter_path)
+    model.eval()
+
+    completions = _generate_with_chat_template(
+        model, tokenizer, list(abstracts), batch_size, max_new_tokens, device
+    )
+
+    del model, base
     torch.cuda.empty_cache()
     return completions
