@@ -46,6 +46,8 @@ Inspecting predictions confirms the fine-tune learned the SciTLDR paper-author v
 
 Training: 372 steps, ~41 minutes on a single RTX 4070 Ti with QLoRA r=16, 4-bit NF4 quantization, paged AdamW 8-bit, cosine LR schedule, effective batch size 16. Train loss dropped from 2.91 → 1.04; eval loss plateaued ~2.05–2.13 (mild overfit signal but no divergence). Run logged to W&B: <https://wandb.ai/pedromussi-pedro-mussi/paper-tldr/runs/rc05szkq>.
 
+![Training and eval loss curves for the QLoRA r=16 run](docs/img/training_curves_rc05szkq.png)
+
 *Reference summaries average 19.0 words.*
 
 ### Prompt-sensitivity ablation
