@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # Use the CPU build of torch — tests don't touch CUDA, this saves ~1 GB.
+      - name: Install CPU-only torch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      # Install only what the test suite imports. We deliberately skip
+      # bitsandbytes / peft / trl / wandb / dvc — those require GPU or are
+      # network-heavy and aren't exercised by the unit tests.
+      - name: Install minimal test dependencies
+        run: pip install pytest ruff transformers datasets evaluate rouge-score bert-score pyyaml
+
+      - name: Lint with ruff
+        run: ruff check src scripts tests
+
+      - name: Run tests
+        run: pytest tests -v
