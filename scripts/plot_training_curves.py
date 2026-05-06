@@ -13,10 +13,12 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")  # no display backend on Windows
 import matplotlib.pyplot as plt
+import pandas as pd
+import wandb
+
+# Headless rendering — no display backend on Windows or CI runners.
+plt.switch_backend("Agg")
 
 REPO = Path(__file__).resolve().parents[1]
 # Saved under docs/img/ rather than outputs/ so the PNG is tracked in git and
@@ -45,10 +47,6 @@ def main() -> None:
     ap.add_argument("--label", default=DEFAULT_LABEL)
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
-
-    import pandas as pd  # imported lazily so --help is fast
-
-    import wandb
 
     api = wandb.Api()
     run = api.run(f"{args.entity}/{args.project}/{args.run_id}")

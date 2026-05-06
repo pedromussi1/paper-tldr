@@ -25,8 +25,9 @@ jobs:
       # Install only what the test suite imports. We deliberately skip
       # bitsandbytes / peft / trl / wandb / dvc — those require GPU or are
       # network-heavy and aren't exercised by the unit tests.
+      # Pin ruff so local and CI behave identically. Bump intentionally.
       - name: Install minimal test dependencies
-        run: pip install pytest ruff transformers datasets evaluate rouge-score bert-score pyyaml
+        run: pip install pytest "ruff==0.15.12" transformers datasets evaluate rouge-score bert-score pyyaml
 
       - name: Lint with ruff
         run: ruff check src scripts tests

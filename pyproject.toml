@@ -12,6 +12,11 @@ target-version = "py310"
 select = ["E", "F", "I", "B", "UP", "SIM"]
 ignore = ["E501"]
 
+[tool.ruff.lint.isort]
+# Without this, ruff/isort classifies a few project-domain third-party packages
+# as "first-party" and demands a separating blank line in the import block.
+known-third-party = ["wandb", "evaluate", "datasets", "peft", "transformers"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
