@@ -19,8 +19,17 @@ jobs:
           cache: pip
 
       # Use the CPU build of torch — tests don't touch CUDA, this saves ~1 GB.
+      # Retry: PyTorch's download CDN occasionally returns transient TLS/handshake
+      # errors that have nothing to do with this repo. Back off and retry a few
+      # times, then verify the import so a genuine failure still fails the job.
       - name: Install CPU-only torch
-        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+        run: |
+          for i in 1 2 3 4 5; do
+            pip install torch --index-url https://download.pytorch.org/whl/cpu && break
+            echo "torch install attempt $i failed; retrying in $((i * 15))s..."
+            sleep $((i * 15))
+          done
+          python -c "import torch; print('torch', torch.__version__)"
 
       # Install only what the test suite imports. We deliberately skip
       # bitsandbytes / peft / trl / wandb / dvc — those require GPU or are
