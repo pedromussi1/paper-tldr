@@ -18,17 +18,23 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      # Use the CPU build of torch — tests don't touch CUDA, this saves ~1 GB.
-      # Retry: PyTorch's download CDN occasionally returns transient TLS/handshake
-      # errors that have nothing to do with this repo. Back off and retry a few
-      # times, then verify the import so a genuine failure still fails the job.
-      - name: Install CPU-only torch
+      # Prefer the lean CPU build of torch (tests don't touch CUDA, saves ~1 GB).
+      # PyTorch's own download CDN (download.pytorch.org) periodically returns
+      # TLS handshake errors unrelated to this repo. Retry it a few times, then
+      # fall back to the PyPI torch build (served from a different CDN) so a
+      # PyTorch-CDN outage can't red-line CI. Verify the import either way.
+      - name: Install torch (CPU, with PyPI fallback)
         run: |
-          for i in 1 2 3 4 5; do
-            pip install torch --index-url https://download.pytorch.org/whl/cpu && break
-            echo "torch install attempt $i failed; retrying in $((i * 15))s..."
-            sleep $((i * 15))
+          ok=0
+          for i in 1 2 3; do
+            pip install torch --index-url https://download.pytorch.org/whl/cpu && { ok=1; break; }
+            echo "CPU-index torch attempt $i failed; retrying in $((i * 10))s..."
+            sleep $((i * 10))
           done
+          if [ "$ok" -ne 1 ]; then
+            echo "PyTorch CPU CDN unreachable — falling back to the PyPI torch build."
+            pip install torch
+          fi
           python -c "import torch; print('torch', torch.__version__)"
 
       # Install only what the test suite imports. We deliberately skip
